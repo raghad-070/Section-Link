@@ -1,9 +1,20 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>قروبات كلية ادارة الاعمال</title>
+
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6V9913XL3C"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6V9913XL3C');
+</script>
+
 <style>
 body { font-family:"Tahoma",sans-serif; background:linear-gradient(to bottom,#dff1ff,#f8fbff); margin:0; padding:0; color:#333; }
 header { display:flex; align-items:center; justify-content:space-between; padding:20px 10%; background:#fff; border-radius:0 0 30px 30px; box-shadow:0 8px 20px rgba(0,0,0,.15); }
@@ -36,6 +47,7 @@ button:hover { background:#2980b9; }
 .group-card button.edit-btn:hover { background:#e67e22; }
 .empty { text-align:center; color:#888; font-style:italic; padding:15px; }
 footer { background:#fff; text-align:center; padding:15px; font-size:14px; color:#555; box-shadow:0 -2px 6px rgba(0,0,0,0.05); }
+
 @media (max-width:768px){
   .hero { flex-direction:column; padding:20px; }
   .hero-text { max-width:100%; text-align:center; }
@@ -45,6 +57,7 @@ footer { background:#fff; text-align:center; padding:15px; font-size:14px; color
 }
 </style>
 </head>
+
 <body>
 
 <header>
@@ -117,6 +130,11 @@ let editModeId = null;
 async function fetchGroups() {
   try {
     const response = await fetch(BASE_URL);
+
+    if (!response.ok) {
+      throw new Error("فشل تحميل القروبات: " + response.status);
+    }
+
     groupsData = await response.json();
 
     const filterSelect = document.getElementById("filterMajor");
@@ -125,7 +143,9 @@ async function fetchGroups() {
     filterSelect.innerHTML = '<option value="">اختر التخصص</option>';
     addSelect.innerHTML = '<option value="">اختر التخصص</option>';
 
-    let majors = [...new Set(groupsData.map(g => g.Major).filter(m => m && m.trim() !== ""))];
+    const majors = [...new Set(
+      groupsData.map(g => g.Major).filter(m => m && m.trim() !== "")
+    )];
 
     majors.forEach(m => {
       const opt1 = document.createElement("option");
@@ -151,28 +171,49 @@ function filterGroups() {
   const container = document.getElementById("groupsList");
   container.innerHTML = "";
 
-  const filtered = groupsData.filter(g => !selectedMajor || g.Major === selectedMajor);
+  const filtered = groupsData.filter(
+    g => !selectedMajor || g.Major === selectedMajor
+  );
 
   if (filtered.length > 0) {
     filtered.forEach(g => {
-      container.innerHTML += `
-        <div class="group-card">
-          <h3>${g.Course}</h3>
-          <p>الشعبة: ${g.Section}</p>
-          <p>التخصص: ${g.Major}</p>
-          <a href="${g.Link}" target="_blank">انضم</a>
-          <button class="edit-btn" onclick='editGroup(${g.id})'>تعديل</button>
-        </div>
-      `;
+      const card = document.createElement("div");
+      card.className = "group-card";
+
+      const title = document.createElement("h3");
+      title.textContent = g.Course ?? "";
+
+      const section = document.createElement("p");
+      section.textContent = "الشعبة: " + (g.Section ?? "");
+
+      const major = document.createElement("p");
+      major.textContent = "التخصص: " + (g.Major ?? "");
+
+      const link = document.createElement("a");
+      link.href = g.Link || "#";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "انضم";
+
+      const editButton = document.createElement("button");
+      editButton.className = "edit-btn";
+      editButton.type = "button";
+      editButton.textContent = "تعديل";
+      editButton.addEventListener("click", () => editGroup(g.id));
+
+      card.append(title, section, major, link, editButton);
+      container.appendChild(card);
     });
   } else {
-    container.innerHTML = "<p class='empty'>❌ لا يوجد قروبات مطابقة للتخصص</p>";
+    container.innerHTML =
+      "<p class='empty'>❌ لا يوجد قروبات مطابقة للتخصص</p>";
   }
 }
 
 // إضافة أو تعديل قروب
 async function addGroup(event) {
   event.preventDefault();
+
   const Major = document.getElementById("course").value.trim();
   const Section = document.getElementById("section").value.trim();
   const Course = document.getElementById("subject").value.trim();
@@ -187,36 +228,48 @@ async function addGroup(event) {
 
   try {
     let result;
+    let res;
+
     if (editModeId !== null) {
-      // PATCH لتحديث السجل
-      const res = await fetch(`${BASE_URL}/${editModeId}`, {
+      res = await fetch(`${BASE_URL}/${editModeId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
+
+      if (!res.ok) {
+        throw new Error("فشل تعديل القروب: " + res.status);
+      }
+
       result = await res.json();
+
       const idx = groupsData.findIndex(g => g.id === editModeId);
       if (idx >= 0) groupsData[idx] = result;
+
       editModeId = null;
       document.getElementById("submitBtn").innerText = "إرسال ✅";
       alert("✅ تم التعديل بنجاح");
     } else {
-      // POST لإضافة سجل جديد
-      const res = await fetch(BASE_URL, {
+      res = await fetch(BASE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
+
+      if (!res.ok) {
+        throw new Error("فشل إضافة القروب: " + res.status);
+      }
+
       result = await res.json();
       groupsData.push(result);
       alert("✅ تمت الإضافة بنجاح");
     }
 
     document.getElementById("addForm").reset();
-    fetchGroups();
+    await fetchGroups();
   } catch (err) {
     console.error("خطأ أثناء العملية:", err);
-    alert("حدث خطأ أثناء العملية");
+    alert("حدث خطأ أثناء العملية. حاولي مرة أخرى.");
   }
 }
 
@@ -229,6 +282,7 @@ function editGroup(id) {
   document.getElementById("section").value = group.Section;
   document.getElementById("subject").value = group.Course;
   document.getElementById("link").value = group.Link;
+
   editModeId = group.id;
   document.getElementById("submitBtn").innerText = "تعديل ✏️";
   window.scrollTo(0, 0);
